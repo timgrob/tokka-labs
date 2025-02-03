@@ -1,56 +1,127 @@
 from fastapi import FastAPI, HTTPException, status
-from dotenv import load_dotenv
 from models.transaction import Transaction
 from models.time_period import TimePeriod
+from controllers.transactions import find_transactions_by_hash, find_transactions_in_time_period
+from config import ETHERSCAN_API_URL, POOL_ADDRESS
+from dotenv import load_dotenv
+import httpx
+import os
+
 
 load_dotenv()
-
+API_KEY = os.getenv('ETHERSCAN_API_KEY')
 
 app = FastAPI(title="Uniswap Transactions API")
 
-
-@app.get("/api/v1/txns/{txn_hash_key}")
-def fetch_transaction(txn_hash_key: str):
-    if txn_hash_key not in []:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction hash key not found")
-
-    # TODO: implement transaction get logic for fetching a single transaction
-    return {}
-
-@app.get("/api/v1/txns/")
-def fetch_all_transactions():
-
-    # TODO: implement transaction get logic for fetching all stored transactions
-    return {}
+database = {} # TODO: In memory database for testing only
 
 
-@app.post("/api/v1/txns/")
-def create_transaction(txn: Transaction):
-    # TODO: Check if transaction already exisists
-    if txn.id in []: 
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Transaction already exisits")
+@app.get("/")
+def index():
+    # This is a helper endpoint to verify that the server is running
+    return {"status": "server is running"}
+
+
+# @app.get("/api/v1/txns")
+# async def fetch_all_transactions():
+#     start_block = 0
+#     end_block = 99_999_999
+#     transactions: list[Transaction] = []
+#     params = {
+#         "module": "account",
+#         "action": "tokentx",
+#         "address": POOL_ADDRESS,
+#         "startblock": start_block, 
+#         "endblock": end_block,
+#         "sort": "asc",
+#         "apikey": API_KEY
+#     }
     
-    # TODO: implement transaction logic to create new transaction
+#     while start_block < end_block:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.get(url=ETHERSCAN_API_URL, params=params)
+
+#         if response.status_code != status.HTTP_200_OK:
+#             raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="No more transactions found")
+
+#         txns = response.json()["result"]
+#         transactions.extend([
+#             Transaction(
+#                 block_number=txn["blockNumber"], 
+#                 time_stamp=txn["timeStamp"], 
+#                 hash=txn["hash"], 
+#                 gas=txn["gas"], 
+#                 gas_price=txn["gasPrice"], 
+#                 gas_used=txn["gasUsed"]) 
+#                 for txn in txns])
+#         start_block = transactions[-1].block_number + 1
+#         print(f"Fetched {len(transactions)} transactions, continuing from block {start_block}...")
+#         print(params)
+
+@app.get("/api/v1/txns")
+async def fetch_all_transactions():
+    start_block = 0
+    end_block = 99_999_999
+    transactions: list[Transaction] = []
+
+    params = {
+        "module": "account",
+        "action": "tokentx",
+        "address": POOL_ADDRESS,
+        "startblock": start_block, 
+        "endblock": end_block,
+        "sort": "asc",
+        "apikey": API_KEY
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url=ETHERSCAN_API_URL, params=params)
+        txns = response.json()["result"]
+        transactions = [
+            Transaction(
+                block_number=txn["blockNumber"], 
+                time_stamp=txn["timeStamp"], 
+                hash=txn["hash"], 
+                gas=txn["gas"], 
+                gas_price=txn["gasPrice"], 
+                gas_used=txn["gasUsed"]) 
+                for txn in txns]
+        
+        return transactions
+
+
+@app.get("/api/v1/txns/{txn_hash}")
+async def fetch_transactions_by_hash(txn_hash: str):
+    txns = await fetch_all_transactions()
+    txns_with_hash = find_transactions_by_hash(txns, txn_hash)
+
+    if len(txns_with_hash) == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Transaction not found for hash={txn_hash}")
+
+    return txns_with_hash
+
+@app.post("/api/v1/txns")
+async def fetch_transactions_in_time_period(time_period: TimePeriod):
+    txns = await fetch_all_transactions()
+    txns_in_time_period = find_transactions_in_time_period(txns, time_period)
+
+    if len(txns_in_time_period) == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No transactions found in time period; {time_period.start_timestamp=} and {time_period.end_timestamp=}")
+    
+    return txns_in_time_period
+
+
+@app.get("/api/v1/gas-fees/{txn_hash_key}")
+async def fetch_gas_fees_by_hash(txn_hash_key: str):
+    txns_with_hash = await fetch_transactions_by_hash(txn_hash_key)
+    
+    # TODO: implement logic to calculate gas fees
     return {}
 
 
-@app.post("/api/v1/txns/")
-def fetch_transactions_in_time_period(time_period: TimePeriod):
+@app.post("/api/v1/gas-fees")
+async def fetch_gas_fees_in_time_period(time_period: TimePeriod):
+    txns_in_time_period = await fetch_transactions_in_time_period(time_period)
     
-    # TODO: implement transaction post logic to fetch transactions in time period
-    return {}
-
-
-@app.get("/api/v1/txn-fees/{txn_hash_key}")
-def fetch_transaction_fee(txn_hash_key: str):
-    txn = fetch_transaction(txn_hash_key)
-    
-    # TODO: implement logic to fetch transaction fee of single transaction
-    return {}
-
-
-@app.post("/api/v1/txn-fees/")
-def fetch_transaction_fee_in_time_period(time_period: TimePeriod):
-    
-    # TODO: implement transaction post logic to fetch transactions in time period
+    # TODO: implement logic to calculate gas fees
     return {}

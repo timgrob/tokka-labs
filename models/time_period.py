@@ -4,5 +4,5 @@ from typing import Optional
 
 
 class TimePeriod(BaseModel):
-    start_time: datetime
-    end_time: Optional[datetime]
+    start_timestamp: int
+    end_timestamp: Optional[int]
