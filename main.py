@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, status
 from models.transaction import Transaction
 from models.time_period import TimePeriod
 from controllers.transactions import find_transactions_by_hash, find_transactions_in_time_period
+from controllers.fees import convert_fees_to_usdt
 from config import ETHERSCAN_API_URL, POOL_ADDRESS
 from dotenv import load_dotenv
 import httpx
@@ -114,14 +115,16 @@ async def fetch_transactions_in_time_period(time_period: TimePeriod):
 @app.get("/api/v1/gas-fees/{txn_hash_key}")
 async def fetch_gas_fees_by_hash(txn_hash_key: str):
     txns_with_hash = await fetch_transactions_by_hash(txn_hash_key)
+    gas_fee_usdt = await convert_fees_to_usdt(txns_with_hash)
+    total_gas_fee_usdt = sum(gas_fee_usdt)
     
-    # TODO: implement logic to calculate gas fees
-    return {}
+    return {"gas_fee_usdt": total_gas_fee_usdt}
 
 
 @app.post("/api/v1/gas-fees")
 async def fetch_gas_fees_in_time_period(time_period: TimePeriod):
     txns_in_time_period = await fetch_transactions_in_time_period(time_period)
+    gas_fee_eth = await convert_fees_to_usdt(txns_in_time_period)
+    total_gas_fee_usdt = sum(gas_fee_eth)
     
-    # TODO: implement logic to calculate gas fees
-    return {}
+    return {"gas_fee_usdt": total_gas_fee_usdt}

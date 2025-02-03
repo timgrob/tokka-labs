@@ -1,11 +1,26 @@
 from models.transaction import Transaction
+from config import BINANCE_API_URL, ETH_USDT_SYMBOL
+import httpx
 
 
-WAI = 1E-18     # Wai unit in ETH 
-GWAI = 1E-9     # Gwai unit in ETH
+async def fetch_ethusdt_price_at_timestamp(timestamp: int) -> float:
+    params = {
+        "symbol": ETH_USDT_SYMBOL,
+        "interval": "1m",
+        "startTime": int(timestamp * 1000),  # Convert seconds to milliseconds
+        "limit": 1
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url=BINANCE_API_URL, params=params)
+        data = response.json()
+        price = float(data["price"]) 
+        return price
 
 
-def calculate_total_gas_fees(txns: list[Transaction]) -> float:
-    # CALCULATION FORMULA: total gas = units of gas used * (base fee + priority fee)
-    # returns gas fees in ETH
-    return sum([txn.gas_used * txn.gas_price * WAI for txn in txns])
+async def convert_fees_to_usdt(txns: list[Transaction]) -> list[float]:
+    fees_in_usdt: list[float] = []
+    for txn in txns:
+        eth_price = await fetch_ethusdt_price_at_timestamp(txn.time_stamp)
+        fees_in_usdt.append(txn.gas_fee * eth_price)
+
+    return fees_in_usdt
