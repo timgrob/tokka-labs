@@ -83,7 +83,6 @@ async def fetch_all_transactions():
                 block_number=txn["blockNumber"], 
                 time_stamp=txn["timeStamp"], 
                 hash=txn["hash"], 
-                gas=txn["gas"], 
                 gas_price=txn["gasPrice"], 
                 gas_used=txn["gasUsed"]) 
                 for txn in txns]
