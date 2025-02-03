@@ -13,7 +13,7 @@ async def fetch_ethusdt_price_at_timestamp(timestamp: int) -> float:
     async with httpx.AsyncClient() as client:
         response = await client.get(url=BINANCE_API_URL, params=params)
         data = response.json()
-        price = float(data["price"]) 
+        price = float(data[4])  # Price of ETH/USDT
         return price
 
 
