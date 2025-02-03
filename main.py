@@ -101,6 +101,7 @@ async def fetch_transactions_by_hash(txn_hash: str):
 
     return txns_with_hash
 
+
 @app.post("/api/v1/txns")
 async def fetch_transactions_in_time_period(time_period: TimePeriod):
     txns = await fetch_all_transactions()
