@@ -24,38 +24,3 @@ async def fetch_ethusdt_prices_at_timestamps(timestamps: list[int]) -> list[floa
         prices.append(price)
 
     return prices
-
-
-
-
-
-
-
-async def convert_fees_to_usdt(txns: list[Transaction]) -> list[float]:
-    fees_in_usdt: list[float] = []
-    for txn in txns:
-        eth_price = await fetch_ethusdt_price_at_timestamp(txn.time_stamp)
-        fees_in_usdt.append(txn.gas_fee * eth_price)
-
-    return fees_in_usdt
-
-
-# async def fetch_latest_price(symbol: str) -> float:
-#     params = {
-#         "symbol": symbol,
-#         "limit": 1
-#     }
-#     res_klines = await httpx.get(url=BINANCE_API_URL, params=params)
-#     price_data = res_klines.json()
-#     print(price)
-
-
-# async def fetch_price_at_timestamp(symbol: str, timestamp: int) -> float:
-#     params = {
-#         "symbol": symbol, 
-#         "startTime": timestamp,
-#         "limit": 1
-#     }
-#     res_klines = await httpx.get(url=BINANCE_API_URL, params=params)
-#     print(price)
-
