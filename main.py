@@ -1,20 +1,24 @@
 from fastapi import FastAPI, HTTPException, status
-from models.transaction import Transaction
 from models.time_period import TimePeriod
-from controllers.transactions import find_transactions_by_hash, find_transactions_in_time_period
-from controllers.fees import convert_fees_to_usdt
-from config import ETHERSCAN_API_URL, POOL_ADDRESS
-from dotenv import load_dotenv
-import httpx
-import os
+from databases.in_memory_db import InMemoryDB
+from services.etherscan import fetch_all_transactions
+from services.binance import fetch_ethusdt_price_at_timestamp, fetch_ethusdt_prices_at_timestamps
+import numpy as np
 
 
-load_dotenv()
-API_KEY = os.getenv('ETHERSCAN_API_KEY')
+app = FastAPI(title="Uniswap Transactions API", description="Tokka Labs Coding Challenge")
+db = InMemoryDB()
 
-app = FastAPI(title="Uniswap Transactions API")
 
-database = {} # TODO: In memory database for testing only
+@app.on_event("startup")
+async def startup_event():
+    txns = await fetch_all_transactions()
+    await db.add_txns(txns)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await db.clear()
 
 
 @app.get("/")
@@ -23,108 +27,89 @@ def index():
     return {"status": "server is running"}
 
 
-# @app.get("/api/v1/txns")
-# async def fetch_all_transactions():
-#     start_block = 0
-#     end_block = 99_999_999
-#     transactions: list[Transaction] = []
-#     params = {
-#         "module": "account",
-#         "action": "tokentx",
-#         "address": POOL_ADDRESS,
-#         "startblock": start_block, 
-#         "endblock": end_block,
-#         "sort": "asc",
-#         "apikey": API_KEY
-#     }
-    
-#     while start_block < end_block:
-#         async with httpx.AsyncClient() as client:
-#             response = await client.get(url=ETHERSCAN_API_URL, params=params)
-
-#         if response.status_code != status.HTTP_200_OK:
-#             raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="No more transactions found")
-
-#         txns = response.json()["result"]
-#         transactions.extend([
-#             Transaction(
-#                 block_number=txn["blockNumber"], 
-#                 time_stamp=txn["timeStamp"], 
-#                 hash=txn["hash"], 
-#                 gas=txn["gas"], 
-#                 gas_price=txn["gasPrice"], 
-#                 gas_used=txn["gasUsed"]) 
-#                 for txn in txns])
-#         start_block = transactions[-1].block_number + 1
-#         print(f"Fetched {len(transactions)} transactions, continuing from block {start_block}...")
-#         print(params)
-
 @app.get("/api/v1/txns")
-async def fetch_all_transactions():
-    start_block = 0
-    end_block = 99_999_999
-    transactions: list[Transaction] = []
+async def all_transactions():
+    try: 
+        txns = await db.find_all_transactions()
+    except:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Transactions could not be fetched")
 
-    params = {
-        "module": "account",
-        "action": "tokentx",
-        "address": POOL_ADDRESS,
-        "startblock": start_block, 
-        "endblock": end_block,
-        "sort": "asc",
-        "apikey": API_KEY
-    }
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url=ETHERSCAN_API_URL, params=params)
-        txns = response.json()["result"]
-        transactions = [
-            Transaction(
-                block_number=txn["blockNumber"], 
-                time_stamp=txn["timeStamp"], 
-                hash=txn["hash"], 
-                gas_price=txn["gasPrice"], 
-                gas_used=txn["gasUsed"]) 
-                for txn in txns]
-        
-        return transactions
+    return {
+        "status": status.HTTP_200_OK,
+        "message": "OK",
+        "number_of_transactions": len(txns),
+        "result": txns
+        }
 
 
 @app.get("/api/v1/txns/{txn_hash}")
-async def fetch_transactions_by_hash(txn_hash: str):
-    txns = await fetch_all_transactions()
-    txns_with_hash = find_transactions_by_hash(txns, txn_hash)
+async def transactions_by_hash(txn_hash: str):
+    if not db.has_txn_hash(txn_hash):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 
-    if len(txns_with_hash) == 0:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Transaction not found for hash={txn_hash}")
+    try:
+        txn = await db.find_txn_by_hash(txn_hash)
+    except:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Transaction could not be fetched")
 
-    return txns_with_hash
+    return {
+        "status": status.HTTP_200_OK,
+        "message": "OK",
+        "number_of_transactions": 1,
+        "result": txn
+        }
 
 
 @app.post("/api/v1/txns")
-async def fetch_transactions_in_time_period(time_period: TimePeriod):
-    txns = await fetch_all_transactions()
-    txns_in_time_period = find_transactions_in_time_period(txns, time_period)
+async def transactions_in_time_period(time_period: TimePeriod):
+    try:
+        txns = await db.find_txn_in_time_period(time_period)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start timestamp must be before end timestamp")
+    except:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Transactions in {time_period=} could not be fetched")
 
-    if len(txns_in_time_period) == 0:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No transactions found in time period; {time_period.start_timestamp=} and {time_period.end_timestamp=}")
+    return {
+        "status": status.HTTP_200_OK,
+        "message": "OK",
+        "number_of_transactions": len(txns),
+        "result": txns
+    }
+
+
+@app.get("/api/v1/gas-fees/{txn_hash}")
+async def gas_fees_by_hash(txn_hash: str):
+    try:
+        txn = await db.find_txn_by_hash(txn_hash)
+        price_ethusdt = await fetch_ethusdt_price_at_timestamp(txn.time_stamp)
+        gas_fee_usdt = txn.gas_fee * price_ethusdt
+    except:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Gas price in USDT could not be calculated")
+
     
-    return txns_in_time_period
-
-
-@app.get("/api/v1/gas-fees/{txn_hash_key}")
-async def fetch_gas_fees_by_hash(txn_hash_key: str):
-    txns_with_hash = await fetch_transactions_by_hash(txn_hash_key)
-    gas_fee_usdt = await convert_fees_to_usdt(txns_with_hash)
-    total_gas_fee_usdt = sum(gas_fee_usdt)
-    
-    return {"gas_fee_usdt": total_gas_fee_usdt}
+    return {
+        "status": status.HTTP_200_OK,
+        "message": "OK",
+        "gas_fee_usdt": gas_fee_usdt,
+    }
 
 
 @app.post("/api/v1/gas-fees")
-async def fetch_gas_fees_in_time_period(time_period: TimePeriod):
-    txns_in_time_period = await fetch_transactions_in_time_period(time_period)
-    gas_fee_eth = await convert_fees_to_usdt(txns_in_time_period)
-    total_gas_fee_usdt = sum(gas_fee_eth)
-    
-    return {"gas_fee_usdt": total_gas_fee_usdt}
+async def gas_fees_in_time_period(time_period: TimePeriod):
+    try:
+        txns = await db.find_txn_in_time_period(time_period)
+        timestamps = [txn.time_stamp for txn in txns]
+        gas_fees = [txn.gas_fee for txn in txns]
+        prices_ethusdt = await fetch_ethusdt_prices_at_timestamps(timestamps)
+        gas = np.array(gas_fees)
+        prices = np.array(prices_ethusdt)
+        gas_fee_usdt = np.sum(gas * prices)
+    except:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Gas price in USDT for timespan could not be calculated")
+
+
+    return {
+        "status": status.HTTP_200_OK,
+        "message": "OK",
+        "gas_fee_usdt": gas_fee_usdt,
+    }
