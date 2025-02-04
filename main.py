@@ -77,7 +77,7 @@ async def transactions_in_time_period(time_period: TimePeriod):
     }
 
 
-@app.get("/api/v1/gas-fees/{txn_hash}")
+@app.get("/api/v1/txns-fees/{txn_hash}")
 async def gas_fees_by_hash(txn_hash: str):
     try:
         txn = await db.find_txn_by_hash(txn_hash)
@@ -94,7 +94,7 @@ async def gas_fees_by_hash(txn_hash: str):
     }
 
 
-@app.post("/api/v1/gas-fees")
+@app.post("/api/v1/txns-fees")
 async def gas_fees_in_time_period(time_period: TimePeriod):
     try:
         txns = await db.find_txn_in_time_period(time_period)
