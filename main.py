@@ -14,6 +14,7 @@ db = InMemoryDB()
 async def startup_event():
     txns = await fetch_all_transactions()
     await db.add_txns(txns)
+    # TODO: Continuously fetch new transactions
 
 
 @app.on_event("shutdown")
@@ -65,7 +66,7 @@ async def transactions_in_time_period(time_period: TimePeriod):
     try:
         txns = await db.find_txn_in_time_period(time_period)
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start timestamp must be before end timestamp")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Start timestamp must be before end timestamp")
     except:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Transactions in {time_period=} could not be fetched")
 
@@ -78,7 +79,7 @@ async def transactions_in_time_period(time_period: TimePeriod):
 
 
 @app.get("/api/v1/txns-fees/{txn_hash}")
-async def gas_fees_by_hash(txn_hash: str):
+async def transaction_fees_by_hash(txn_hash: str):
     try:
         txn = await db.find_txn_by_hash(txn_hash)
         price_ethusdt = await fetch_ethusdt_price_at_timestamp(txn.time_stamp)
@@ -95,7 +96,7 @@ async def gas_fees_by_hash(txn_hash: str):
 
 
 @app.post("/api/v1/txns-fees")
-async def gas_fees_in_time_period(time_period: TimePeriod):
+async def transaction_fees_in_time_period(time_period: TimePeriod):
     try:
         txns = await db.find_txn_in_time_period(time_period)
         timestamps = [txn.time_stamp for txn in txns]
