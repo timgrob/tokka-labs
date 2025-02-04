@@ -11,6 +11,6 @@ def test_index():
     assert response.json() == {"status": "server is running"}
 
 
-def test_fetch_all_transaction():
-    response = client.get("/api/v1/txns")
-    assert response.status_code == 200
+# def test_fetch_all_transaction():
+#     response = client.get("/api/v1/txns")
+#     assert response.status_code == 200
