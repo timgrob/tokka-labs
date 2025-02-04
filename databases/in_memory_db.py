@@ -51,7 +51,7 @@ class InMemoryDB:
         left_index = bisect.bisect_left(self._sorted_timestamps, start_timestamp)
         right_index = bisect.bisect_right(self._sorted_timestamps, end_timestamp)
 
-        time_span = start_timestamp[left_index:right_index]
+        time_span = self._sorted_timestamps[left_index:right_index]
         txns = list(chain(*[self._timestamp_to_transaction[ts] for ts in time_span]))
 
         return txns
