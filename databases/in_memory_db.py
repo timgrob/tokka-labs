@@ -45,8 +45,7 @@ class InMemoryDB:
             raise ValueError("No transaction in time period found")
 
         start_timestamp = time_period.start_timestamp
-        if time_period.end_timestamp is None:
-            end_timestamp = int(dt.now().timestamp())
+        end_timestamp = time_period.end_timestamp if time_period.end_timestamp else int(dt.now().timestamp())
 
         left_index = bisect.bisect_left(self._sorted_timestamps, start_timestamp)
         right_index = bisect.bisect_right(self._sorted_timestamps, end_timestamp)
