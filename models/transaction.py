@@ -16,3 +16,9 @@ class Transaction(SQLModel, table=True):
     def gas_fee(self) -> float:
         # Returns transaction gas fees in ETH
         return self.gas_used * self.gas_price * WAI
+
+    def __eq__(self, other: object) -> bool:
+        return self.hash == other.hash
+
+    def __hash__(self) -> int:
+        return hash(self.hash)

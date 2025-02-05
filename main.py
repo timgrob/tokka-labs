@@ -1,25 +1,36 @@
 from fastapi import FastAPI, HTTPException, status
+from sqlmodel import SQLModel, Session, create_engine, select
+from config import DATABASE_URL
 from models.time_period import TimePeriod
-from databases.in_memory_db import InMemoryDB
+from models.transaction import Transaction
 from services.etherscan import fetch_all_transactions
 from services.binance import fetch_ethusdt_price_at_timestamp, fetch_ethusdt_prices_at_timestamps
 import numpy as np
 
 
+# FastAPI App
 app = FastAPI(title="Uniswap Transactions API", description="Tokka Labs Coding Challenge")
-db = InMemoryDB()
+
+# Database
+engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
 
 
 @app.on_event("startup")
 async def startup_event():
+    SQLModel.metadata.create_all(engine)
+
     txns = await fetch_all_transactions()
-    await db.add_txns(txns)
+    unique_txns = set(txns)
+    with Session(engine) as session:
+        session.add_all(unique_txns)
+        session.commit()
+
     # TODO: Continuously fetch new transactions
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await db.clear()
+    SQLModel.metadata.drop_all(engine)
 
 
 @app.get("/")
@@ -30,10 +41,10 @@ def index():
 
 @app.get("/api/v1/txns")
 async def all_transactions():
-    try: 
-        txns = await db.find_all_transactions()
-    except:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Transactions could not be fetched")
+    with Session(engine) as session:
+        query = select(Transaction)
+        results = session.exec(query)
+        txns = results.all()
 
     return {
         "status": status.HTTP_200_OK,
@@ -45,13 +56,13 @@ async def all_transactions():
 
 @app.get("/api/v1/txns/{txn_hash}")
 async def transactions_by_hash(txn_hash: str):
-    if not db.has_txn_hash(txn_hash):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
-
-    try:
-        txn = await db.find_txn_by_hash(txn_hash)
+    try: 
+        with Session(engine) as session:
+            query = select(Transaction).where(Transaction.hash == txn_hash)
+            results = session.exec(query)
+            txn = results.one()
     except:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Transaction could not be fetched")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Multiple transactions found with hash={txn_hash}")
 
     return {
         "status": status.HTTP_200_OK,
@@ -63,12 +74,10 @@ async def transactions_by_hash(txn_hash: str):
 
 @app.post("/api/v1/txns")
 async def transactions_in_time_period(time_period: TimePeriod):
-    try:
-        txns = await db.find_txn_in_time_period(time_period)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Start timestamp must be before end timestamp")
-    except:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Transactions in {time_period=} could not be fetched")
+    with Session(engine) as session:
+        query = select(Transaction).where(Transaction.time_stamp >= time_period.start_timestamp, Transaction.time_stamp <= time_period.end_timestamp)
+        results = session.exec(query)
+        txns = results.all()
 
     return {
         "status": status.HTTP_200_OK,
@@ -80,14 +89,20 @@ async def transactions_in_time_period(time_period: TimePeriod):
 
 @app.get("/api/v1/txns-fees/{txn_hash}")
 async def transaction_fees_by_hash(txn_hash: str):
+    try: 
+        with Session(engine) as session:
+            query = select(Transaction).where(Transaction.hash == txn_hash)
+            results = session.exec(query)
+            txn = results.one()
+    except:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Transaction not found with hash={txn_hash}")
+
     try:
-        txn = await db.find_txn_by_hash(txn_hash)
         price_ethusdt = await fetch_ethusdt_price_at_timestamp(txn.time_stamp)
         gas_fee_usdt = txn.gas_fee * price_ethusdt
     except:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Gas price in USDT could not be calculated")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Price information for ETH/USDT could not be fetched")
 
-    
     return {
         "status": status.HTTP_200_OK,
         "message": "OK",
@@ -97,17 +112,20 @@ async def transaction_fees_by_hash(txn_hash: str):
 
 @app.post("/api/v1/txns-fees")
 async def transaction_fees_in_time_period(time_period: TimePeriod):
-    try:
-        txns = await db.find_txn_in_time_period(time_period)
-        timestamps = [txn.time_stamp for txn in txns]
-        gas_fees = [txn.gas_fee for txn in txns]
-        prices_ethusdt = await fetch_ethusdt_prices_at_timestamps(timestamps)
-        gas = np.array(gas_fees)
-        prices = np.array(prices_ethusdt)
-        gas_fee_usdt = np.sum(gas * prices)
-    except:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Gas price in USDT for timespan could not be calculated")
+    with Session(engine) as session:
+        query = select(Transaction).where(Transaction.time_stamp >= time_period.start_timestamp, Transaction.time_stamp <= time_period.end_timestamp)
+        results = session.exec(query)
+        txns = results.all()
 
+    if len(txns) == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No txns found in time span")
+
+    timestamps = [txn.time_stamp for txn in txns]
+    gas_fees = [txn.gas_fee for txn in txns]
+    prices_ethusdt = await fetch_ethusdt_prices_at_timestamps(timestamps)
+    gas = np.array(gas_fees)
+    prices = np.array(prices_ethusdt)
+    gas_fee_usdt = np.sum(gas * prices)
 
     return {
         "status": status.HTTP_200_OK,
