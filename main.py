@@ -3,16 +3,14 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from config import DATABASE_URL, POOL_ADDRESS
 from models.time_period import TimePeriod
 from models.transaction import Transaction
-from services.etherscan import fetch_all_transactions
-from services.binance import fetch_ethusdt_price_at_timestamp, fetch_ethusdt_prices_at_timestamps
 from services.etherscan_transaction_fetcher import EtherscanTransactionFetcher
+from services.binance import fetch_ethusdt_price_at_timestamp, fetch_ethusdt_prices_at_timestamps
 from dotenv import load_dotenv
 import numpy as np
 import os
 
 
 load_dotenv()
-
 API_KEY = os.getenv('ETHERSCAN_API_KEY')
 
 # FastAPI App
