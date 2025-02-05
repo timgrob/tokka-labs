@@ -1,14 +1,20 @@
-from pydantic import BaseModel, PositiveInt, validator
+from sqlmodel import SQLModel
+from pydantic import validator
 from typing import Optional
 
 
-class TimePeriod(BaseModel):
-    start_timestamp: PositiveInt
-    end_timestamp: Optional[PositiveInt]
+class TimePeriod(SQLModel):
+    start_timestamp: int
+    end_timestamp: Optional[int]
 
     @validator("end_timestamp")
-    def check_timestamp_order(cls, end_timestamp, values):
+    def validate_timestamps(cls, end_timestamp: int, values: dict):
         start_timestamp = values.get("start_timestamp")
+
+        if start_timestamp is None:
+            raise ValueError('start_timestamp must be provided before end_timestamp')
+            
         if end_timestamp <= start_timestamp:
             raise ValueError("end_timestamp must be after start_timestamp")
+
         return end_timestamp
