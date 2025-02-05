@@ -1,12 +1,19 @@
 from fastapi import FastAPI, HTTPException, status, Depends
 from sqlmodel import SQLModel, Session, create_engine, select
-from config import DATABASE_URL
+from config import DATABASE_URL, POOL_ADDRESS
 from models.time_period import TimePeriod
 from models.transaction import Transaction
 from services.etherscan import fetch_all_transactions
 from services.binance import fetch_ethusdt_price_at_timestamp, fetch_ethusdt_prices_at_timestamps
+from services.etherscan_transaction_fetcher import EtherscanTransactionFetcher
+from dotenv import load_dotenv
 import numpy as np
+import os
 
+
+load_dotenv()
+
+API_KEY = os.getenv('ETHERSCAN_API_KEY')
 
 # FastAPI App
 app = FastAPI(title="Uniswap Transactions API", description="Tokka Labs Coding Challenge")
@@ -24,7 +31,8 @@ def get_session():
 async def startup_event():
     SQLModel.metadata.create_all(engine)
 
-    txns = await fetch_all_transactions()
+    fetcher = EtherscanTransactionFetcher(API_KEY)
+    txns = await fetcher.fetch_all_transactions(POOL_ADDRESS, block_limit=10)
 
     with Session(engine) as session:
         session.add_all(txns)
@@ -156,9 +164,6 @@ async def transaction_fees_in_time_period(time_period: TimePeriod, session: Sess
     # Remove duplicate transactions with the same hash key
     if len(txns) > 0:
         txns_unique: set[Transaction] = set(txns)
-
-    print(f"======== length: {len(txns)}")
-    print(f"======== length: {len(txns_unique)}")
 
     timestamps = [txn.time_stamp for txn in txns_unique]
     gas_fees = [txn.gas_fee for txn in txns_unique]
