@@ -36,3 +36,20 @@ The Swagger interface also allows you to interact with the api.
 
 # Usage
 The EtherscanMonitor in the startup function takes an optional block_limit parameter. This parameter is currently set to block_limit=10. This means, only the transactions within the last 10 found blocks are fetched from Etherscan's api. This number can be changed manually or completely omitted. Yet if you omit the value, all transactions in the Uniswap pool will be fetched, which takes a long time. 
+
+# Bonus Questions
+## Availability
+Given that the system currently runs locally, availability is low. Once the local server is terminated, the api is no longer accessible. Therefore, the application should be deployed on a private server or a cloud provider platform, where the cloud provider guarantees a high percentage of up-time.
+
+## Scalability
+The api has been designed in a modular way with services (either modules or functions), which all work stand alone. These services could also be executed individually by running them in lambda functions or have different cloud servers running the service. 
+
+Due to the small number of end points (only two were required, yet I build some more just for fun) routing was not consiered. Yet, for larger projects with more end points a routing system should be used. FastAPI, just like most other frontend and backend frameworks, pro provides such a routing system out of the box. This way, different routes can "live" in different directories which keeps the code nicely segragated. 
+
+My solution, however, takes api versioning into account, which makes upgrading to a higher version or adding more functionalities to a higher versioned api possible, without jeopardizing the currently running api.  
+
+## Relability
+Good care was taken to catch errors early e.g. SQLModel is used which uses Pydantic under the hood to check user input. Errors where also tried to be caught whenever they occur to then also display a Reasonable error message or warning. 
+Also, all functionalities have corresponding tests (more tests could have been written of course). The tests use their own in memory sqlite database. With these tests in place, one can guarantee a certain behavior and errors can again be caught early.
+
+Where my solution falls short is by fetching the current ETH/USDT price from Binance's api. Since the prices are fetched from Binance's "candle stick" api (```klines```) with a set resolution of 1 min, the price for the most recent transactions (withing the last 60s) may fluctuate because the "candle stick" prices have not yet been ultimately determined. Also, within this 1 min "candle stick" resolution window, the closing price is taken, which may not the exact price of the timestamp of the transaction, which may make the transaction fee returned by the api differ to the transaction fees seen on Etherscan.
