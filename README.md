@@ -41,6 +41,12 @@ uvicorn main:app
 
 The application will be running at localhost ```http://127.0.0.1:8000```
 
+# Run Tests
+All tests can be run by running the follwing command from the terminal when in the project's root directory:
+```
+python -m pytest
+```
+
 # Docs
 Once the application is running, a Swagger documentation can be viewed at ```http://127.0.0.1:8000/docs```
 The Swagger interface also allows you to interact with the api.
