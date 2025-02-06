@@ -17,17 +17,28 @@ conda activate {ENV_NAME}
 ```
 
 ## 2: Install dependencies
-Once the virtual environment is activated install ```requirements.txt``` dependencies by running: ```pip instal - r requirements.txt```
+Once the virtual environment is activated install ```requirements.txt``` dependencies by running: 
+
+```
+pip instal - r requirements.txt
+```
 
 ## 3: Create .env file
 Due to security reasons, ```.env``` file is not checked in to the GitHub repository in order to not expose the Etherscan's api key. Therefore a ```.env``` file needs to be manually created in the project's root directory 
 
-Type ```touch .env``` in the terminal when in the root directory of the project.
+Type ```touch .env``` in the terminal when in the root directory of the project or create a new ```.env``` via the system explorer.
 
-Open your favorite code editor and put the following code there: ```ETHERSCAN_API_KEY = "{YOUR_ETHERSCAN_API_KEY}"```
+Open your favorite code editor and put the following code there: 
+```
+ETHERSCAN_API_KEY = "{YOUR_ETHERSCAN_API_KEY}"
+```
 
 # Run Code
-In the project's root directory run main.py file from the terminal by typing ```uvicorn main:app```
+In the project's root directory run main.py file from the terminal by typing: 
+```
+uvicorn main:app
+```
+
 The application will be running at localhost ```http://127.0.0.1:8000```
 
 # Docs
