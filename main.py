@@ -1,9 +1,9 @@
-from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi import FastAPI, BackgroundTasks, HTTPException, status, Depends
 from sqlmodel import SQLModel, Session, create_engine, select
 from config import DATABASE_URL, POOL_ADDRESS
 from models.time_period import TimePeriod
 from models.transaction import Transaction
-from services.etherscan_transaction_fetcher import EtherscanTransactionFetcher
+from services.etherscan_monitor import EtherscanMonitor
 from services.binance import fetch_ethusdt_price_at_timestamp, fetch_ethusdt_prices_at_timestamps
 from dotenv import load_dotenv
 import numpy as np
@@ -26,17 +26,12 @@ def get_session():
 
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event(background_tasks: BackgroundTasks):
     SQLModel.metadata.create_all(engine)
 
-    fetcher = EtherscanTransactionFetcher(API_KEY)
-    txns = await fetcher.fetch_all_transactions(POOL_ADDRESS, block_limit=10)
-
-    with Session(engine) as session:
-        session.add_all(txns)
-        session.commit()
-
-    # TODO: Continuously fetch new transactions
+    monitor = EtherscanMonitor(API_KEY, engine)
+    monitor.retrieve_transactions(POOL_ADDRESS, block_limit=10)
+    # monitor.record_transactions(POOL_ADDRESS)
 
 
 @app.on_event("shutdown")
