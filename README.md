@@ -59,9 +59,9 @@ The EtherscanMonitor in the startup function takes an optional ```block_limit```
 Given that the system currently runs locally, availability is low. Once the local server is terminated, the api is no longer accessible. Therefore, the application should be deployed on a private server or a cloud provider platform, where the cloud provider guarantees a high percentage of up-time.
 
 Given that the application can be technically split in three parts: 
-- api: server runs the api and where data is fetched from the database
-- database: server where transaction data is stored
-- data recording: server where transactions are continously fetched from the Etherscan api and stored into the database
+- api: server runs the api and fetches transaction data from database
+- database: server where database is run and transaction data is stored
+- data recording: server that continously fetches the latest transaction data from the Etherscan api and stored into the database
 
 These three parts should "live" on separate servers, to improve availability. Because currently, if the local server goes down, the entire app is down and the database is whiped (I clear the database at shutdown, which is by design). Yet, if for instance only data recording server goes bust, then the api would still be accessible and older transactions can still be fetched. 
 
