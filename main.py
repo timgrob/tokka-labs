@@ -20,8 +20,6 @@ app = FastAPI(title="Uniswap Transactions API", description="Tokka Labs Coding C
 # Database
 engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
 
-# Transaction Monitor
-monitor = EtherscanMonitor(API_KEY, engine)
 
 # Dependency
 def get_session():
@@ -33,6 +31,7 @@ def get_session():
 async def startup_event():
     SQLModel.metadata.create_all(engine)
 
+    monitor = EtherscanMonitor(API_KEY, engine)
     monitor.retrieve_transactions(POOL_ADDRESS, block_limit=10)
     asyncio.create_task(monitor.record_transactions(POOL_ADDRESS))
 

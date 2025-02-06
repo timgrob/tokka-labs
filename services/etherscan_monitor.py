@@ -35,7 +35,7 @@ class EtherscanMonitor:
 
         # For the sake of time, also give the option to limit the number of blocks fetched. 
         # If block_limit is set, only fetch the number of block_limit latest 
-        start_block = latest_block - block_limit if block_limit else 12376729  # First bock on chain in pool
+        start_block = latest_block - block_limit if block_limit else 12376729  # First bock on chain in pool. In order not to start at 0
 
         while start_block < latest_block:
             end_block = min(start_block + block_range, latest_block)
@@ -117,61 +117,3 @@ class EtherscanMonitor:
         with Session(self.engine) as session:
                 session.add_all(txns)
                 session.commit()
-
-
-    async def monitor_address(self, address: str):
-        self.last_block[address] = self.last_block.get(address, 0)
-        
-        while True:
-            try:
-                params = {
-                    "module": "account",
-                    "action": "txlist",
-                    "address": address,
-                    "startblock": self.last_block[address],
-                    "endblock": 99999999,
-                    "sort": "asc",
-                    "apikey": self.api_key
-                }
-
-                response = await self.client.get("https://api.etherscan.io/api", params=params)
-                data = response.json()
-
-                if data['status'] == '1' and data['result']:
-                    transactions = data['result']
-                    db = SessionLocal()
-                    
-                    try:
-                        for tx in transactions:
-                            stmt = insert(Transaction).values(
-                                hash=tx['hash'],
-                                block_number=int(tx['blockNumber']),
-                                timestamp=datetime.datetime.fromtimestamp(int(tx['timeStamp'])),
-                                from_address=tx['from'],
-                                to_address=tx['to'],
-                                value=float(tx['value']) / 10**18,
-                                gas=int(tx['gas']),
-                                gas_price=int(tx['gasPrice']),
-                                is_error=bool(int(tx['isError']))
-                            ).on_conflict_do_nothing(index_elements=['hash'])
-                            
-                            db.execute(stmt)
-                            
-                            # Update last processed block
-                            self.last_block[address] = max(
-                                self.last_block[address],
-                                int(tx['blockNumber'])
-                            )
-                        
-                        db.commit()
-                    finally:
-                        db.close()
-
-                # Rate limit compliance
-                await asyncio.sleep(0.2)
-            
-            except Exception as e:
-                print(f"Error monitoring {address}: {e}")
-                await asyncio.sleep(5)
-            
-            
