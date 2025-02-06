@@ -28,7 +28,7 @@ Due to security reasons, ```.env``` file is not checked in to the GitHub reposit
 
 Type ```touch .env``` in the terminal when in the root directory of the project or create a new ```.env``` via the system explorer.
 
-Open your favorite code editor and put the following code there: 
+Open your favorite code editor and put the following code in your newly created ```.env``` file: 
 ```
 ETHERSCAN_API_KEY = "{YOUR_ETHERSCAN_API_KEY}"
 ```
