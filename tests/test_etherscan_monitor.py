@@ -30,7 +30,7 @@ def api_key() -> str:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def session():
+def setup_and_teardown():
     SQLModel.metadata.create_all(engine)
     yield
     SQLModel.metadata.drop_all(engine)
