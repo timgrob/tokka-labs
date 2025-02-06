@@ -20,7 +20,7 @@ conda activate {ENV_NAME}
 Once the virtual environment is activated install ```requirements.txt``` dependencies by running: 
 
 ```
-pip instal - r requirements.txt
+pip install - r requirements.txt
 ```
 
 ## 3: Create .env file
