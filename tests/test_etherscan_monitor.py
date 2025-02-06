@@ -3,9 +3,8 @@ from services.etherscan_monitor import EtherscanMonitor
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 from dotenv import load_dotenv
-from main import get_session
-from config import POOL_ADDRESS
 from main import app, get_session
+from config import POOL_ADDRESS
 import pytest
 import os
 
@@ -29,7 +28,7 @@ def api_key() -> str:
     return os.getenv('ETHERSCAN_API_KEY')
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
     SQLModel.metadata.create_all(engine)
     yield
