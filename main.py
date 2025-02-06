@@ -1,4 +1,4 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException, status, Depends
+from fastapi import FastAPI, HTTPException, status, Depends
 from sqlmodel import SQLModel, Session, create_engine, select
 from config import DATABASE_URL, POOL_ADDRESS
 from models.time_period import TimePeriod
@@ -7,6 +7,7 @@ from services.etherscan_monitor import EtherscanMonitor
 from services.binance import fetch_ethusdt_price_at_timestamp, fetch_ethusdt_prices_at_timestamps
 from dotenv import load_dotenv
 import numpy as np
+import asyncio
 import os
 
 
@@ -19,6 +20,9 @@ app = FastAPI(title="Uniswap Transactions API", description="Tokka Labs Coding C
 # Database
 engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
 
+# Transaction Monitor
+monitor = EtherscanMonitor(API_KEY, engine)
+
 # Dependency
 def get_session():
     with Session(engine) as session:
@@ -26,12 +30,11 @@ def get_session():
 
 
 @app.on_event("startup")
-async def startup_event(background_tasks: BackgroundTasks):
+async def startup_event():
     SQLModel.metadata.create_all(engine)
 
-    monitor = EtherscanMonitor(API_KEY, engine)
     monitor.retrieve_transactions(POOL_ADDRESS, block_limit=10)
-    # monitor.record_transactions(POOL_ADDRESS)
+    asyncio.create_task(monitor.record_transactions(POOL_ADDRESS))
 
 
 @app.on_event("shutdown")
@@ -45,11 +48,11 @@ def index():
     return {"status": "server is running"}
 
 
-@app.post("/api/v1/txn/")
+@app.post("/api/v1/txn")
 async def create_transaction(txn: Transaction, session: Session = Depends(get_session)) -> Transaction:
     session.add(txn)
     session.commit()
-    session.refresh()
+    session.refresh(txn)
 
     return {
         "status": status.HTTP_200_OK,

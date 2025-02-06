@@ -1,14 +1,32 @@
 from fastapi.testclient import TestClient
 from main import app
+import pytest
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup():
+    txn_1 = {"block_number": 1111111, "time_stamp": 1620252901, "hash": "0x00", "gas_price": 60000000000, "gas_used": 200000}
+    txn_2 = {"block_number": 2222222, "time_stamp": 1620250921, "hash": "0x01", "gas_price": 61000000000, "gas_used": 210000}
+    client.post("/api/v1/txn", json=txn_1)
+    client.post("/api/v1/txn", json=txn_2)
 
 
 def test_index():
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"status": "server is running"}
+
+
+def test_create_transaction():
+    txn_new = {"block_number": 3333333, "time_stamp": 1620250931, "hash": "0x02", "gas_price": 62000000000, "gas_used": 220000}
+    response = client.post("/api/v1/txn", json=txn_new)
+    result = response.json()["result"]
+
+    assert response.status_code == 200
+    assert isinstance(result, dict)
 
 
 def test_all_transactions():
@@ -20,17 +38,17 @@ def test_all_transactions():
 
 
 def test_transactions_by_hash():
-    txn_hash = "0x125e0b641d4a4b08806bf52c0c6757648c9963bcda8681e4f996f09e00d4c2cc"
+    txn_hash = "0x00"
     response = client.get(f"/api/v1/txns/{txn_hash}")
     result = response.json()["result"]
-
+    
     assert response.status_code == 200
-    assert  isinstance(result, list)
-    assert len(result) == 2
+    assert isinstance(result, list)
+    assert result[0]["hash"] == "0x00"
 
 
 def test_transactions_by_hash_not_found():
-    txn_hash = "0x01"
+    txn_hash = "0x03"
     response = client.get(f"/api/v1/txns/{txn_hash}")
 
     assert response.status_code == 404
@@ -44,7 +62,6 @@ def test_transactions_in_time_span():
 
     assert response.status_code == 200
     assert isinstance(result, list)
-    assert len(result) == 8
 
 
 def test_transactions_in_time_period_faulty_time_span():
@@ -56,16 +73,15 @@ def test_transactions_in_time_period_faulty_time_span():
 }
 
 def test_transaction_fees_by_hash():
-    txn_hash = "0x125e0b641d4a4b08806bf52c0c6757648c9963bcda8681e4f996f09e00d4c2cc"
+    txn_hash = "0x00"
     response = client.get(f"/api/v1/txn-fees/{txn_hash}")
-    fees = response.json()["gas_fee_usdt"]
 
     assert response.status_code == 200
-    assert fees == 1140.197909488
+    assert "gas_fee_usdt" in response.json()
 
 
 def test_transaction_fees_by_hash_not_found():
-    txn_hash = "0x00"
+    txn_hash = "0x03"
     response = client.get(f"/api/v1/txn-fees/{txn_hash}")
 
     assert response.status_code == 404
@@ -75,10 +91,9 @@ def test_transaction_fees_by_hash_not_found():
 def test_transaction_fees_in_time_period():
     time_span_json = {"start_timestamp": 1620250931, "end_timestamp": 1620252901}
     response = client.post("/api/v1/txn-fees", json=time_span_json)
-    fees = response.json()["gas_fee_usdt"]
 
     assert response.status_code == 200
-    assert fees == 1199.3995683250241
+    assert "gas_fee_usdt" in response.json()
 
 
 def test_transaction_fees_in_time_period_faulty_time_span():

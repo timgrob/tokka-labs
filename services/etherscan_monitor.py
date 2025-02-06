@@ -23,7 +23,7 @@ class EtherscanMonitor:
                 start_block = txns[-1].block_number
 
             # Write transactions to database
-            self._persist_transactions(txns)
+            await self._persist_transactions(txns)
 
             # Fetch again every 30 seconds
             await asyncio.sleep(60)
@@ -44,7 +44,7 @@ class EtherscanMonitor:
             start_block = end_block + 1
 
         # Write transactions to database
-        self._persist_transactions(all_txns)
+        await self._persist_transactions(all_txns)
 
         return all_txns
 

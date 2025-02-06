@@ -1,8 +1,8 @@
-import pytest
 from models.transaction import Transaction
 from services.etherscan_monitor import EtherscanMonitor
 from config import POOL_ADDRESS
 from main import engine, load_dotenv
+import pytest
 import os
 
 
