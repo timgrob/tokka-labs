@@ -52,7 +52,7 @@ Once the application is running, a Swagger documentation can be viewed at ```htt
 The Swagger interface also allows you to interact with the api.
 
 # Usage
-The EtherscanMonitor in the startup function takes an optional block_limit parameter. This parameter is currently set to block_limit=10. This means, only the transactions within the last 10 found blocks are fetched from Etherscan's api. This number can be changed manually or completely omitted. Yet if you omit the value, all transactions in the Uniswap pool will be fetched, which takes a long time. 
+The EtherscanMonitor in the startup function takes an optional ```block_limit``` parameter. This parameter is currently set to ```block_limit=10```. This means, only the transactions within the last 10 found blocks are fetched from Etherscan's api. This number can be changed manually or completely omitted. Yet if you omit the value, all transactions in the Uniswap pool will be fetched, which takes a long time. 
 
 # Bonus Questions
 ## Availability
