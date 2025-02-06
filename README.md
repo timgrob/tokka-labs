@@ -58,10 +58,17 @@ The EtherscanMonitor in the startup function takes an optional ```block_limit```
 ## Availability
 Given that the system currently runs locally, availability is low. Once the local server is terminated, the api is no longer accessible. Therefore, the application should be deployed on a private server or a cloud provider platform, where the cloud provider guarantees a high percentage of up-time.
 
+Given that the application can be technically split in three parts: 
+- api: server runs the api and where data is fetched from the database
+- database: server where transaction data is stored
+- data recording: server where transactions are continously fetched from the Etherscan api and stored into the database
+
+These three parts should "live" on separate servers, to improve availability. Because currently, if the local server goes down, the entire app is down and the database is whiped (I clear the database at shutdown, which is by design). Yet, if for instance only data recording server goes bust, then the api would still be accessible and older transactions can still be fetched. 
+
 ## Scalability
 The api has been designed in a modular way with services (either modules or functions), which all work stand alone. These services could also be executed individually by running them in lambda functions or have different cloud servers running the service. 
 
-Due to the small number of end points (only two were required, yet I build some more just for fun) routing was not consiered. Yet, for larger projects with more end points a routing system should be used. FastAPI, just like most other frontend and backend frameworks, pro provides such a routing system out of the box. This way, different routes can "live" in different directories which keeps the code nicely segragated. 
+Due to the small number of end points (only two were required, yet I build some more just for fun) routing was not consiered. Yet, for larger projects with more end points a routing system should be used. FastAPI, just like most other frontend and backend frameworks, pro provides such a routing system out of the box. This way, different routes can "live" in different directories which keeps the code nicely segragated.
 
 My solution, however, takes api versioning into account, which makes upgrading to a higher version or adding more functionalities to a higher versioned api possible, without jeopardizing the currently running api.  
 
